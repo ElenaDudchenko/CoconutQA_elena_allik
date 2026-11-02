@@ -16,12 +16,15 @@ class TestMovies:
 
         assert response_data['id'] == movie_id
         assert 'description' in response_data
+        assert response_data['description'] == movie_data_with_cleanup['description']
         assert 'name' in response_data
+        assert response_data['name'] == movie_data_with_cleanup['name']
         assert 'genre' in response_data
+        assert response_data['genre'] == movie_data_with_cleanup['genre']
 
-    def test_get_movies_filtered(self, api_manager):
-        min_price = 100
-        max_price = 200
+    def test_get_movies_filtered(self, api_manager, movie_data_with_prices):
+        min_price = movie_data_with_prices['min_price']
+        max_price = movie_data_with_prices['max_price']
 
         response = api_manager.movie_api.get_movies(
             params={
@@ -30,10 +33,30 @@ class TestMovies:
             }
         )
         response_data = response.json()
+        movies = response_data["movies"]
+        page_count = response_data['pageCount']
+        for page in range(2, page_count + 1):
+            response = api_manager.movie_api.get_movies(
+                params={
+                    "minPrice": min_price,
+                    "maxPrice": max_price,
+                    "page": page
+                }
+            )
+            page_data = response.json()
+            movies.extend(page_data["movies"])
 
-        assert response_data['movies']
-        for movie in response_data['movies']:
+        returned_ids =[]
+
+        assert movies
+        for movie in movies:
             assert min_price <= movie["price"] <= max_price
+            returned_ids.append(movie['id'])
+
+        assert movie_data_with_prices["inside_id"] in returned_ids
+        assert movie_data_with_prices["above_id"] not in returned_ids
+        assert movie_data_with_prices["below_id"] not in returned_ids
+
 
     def test_create_movie(self, super_admin_api_manager, movie_data):
         response = super_admin_api_manager.movie_api.create_movie(movie_data)
