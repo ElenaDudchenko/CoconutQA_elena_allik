@@ -1,10 +1,13 @@
 import requests
 import pytest
 
-from data.auth.register_data import get_register_payload
+from models.base_models import RegisterUserResponse
 
 
+@pytest.mark.regress
+@pytest.mark.api
 class TestAuth:
+    @pytest.mark.smoke
     def test_register_user(self, api_manager, test_user):
         response = api_manager.auth_api.register_user(test_user)
         response_data = response.json()
@@ -13,6 +16,7 @@ class TestAuth:
         assert "id" in response_data
         assert "USER" in response_data["roles"]
 
+    @pytest.mark.smoke
     def test_register_and_login_user(self, api_manager, registered_user):
         login_data = {
             "email": registered_user["email"],
@@ -28,23 +32,23 @@ class TestAuth:
         with pytest.raises(requests.exceptions.ConnectTimeout):
             api_manager.auth_api.register_user(test_user, timeout=0.001)
 
-    def test_get_user_info(self, api_manager,authenticated_user):
-        user_id = authenticated_user['id']
-        response = api_manager.user_api.get_user_info(user_id,
-            expected_status=200).json()
-        assert authenticated_user['id'] == response['id']
-        assert authenticated_user['email'] == response['email']
+    @pytest.mark.smoke
+    def test_get_user_info(self, super_admin,authenticated_user):
+        user_id = authenticated_user.id
+        response = RegisterUserResponse.model_validate(super_admin.api.user_api.get_user(user_id,
+            expected_status=200).json())
+        assert authenticated_user.id == response.id
+        assert authenticated_user.email == response.email
 
+    @pytest.mark.smoke
     def test_logout_user(self, api_manager, authenticated_user):
         api_manager.auth_api.logout_user()
 
-    def test_delete_user(self, super_admin_api_manager):
-        user_ids = []
+    @pytest.mark.slow
+    def test_delete_user(self, super_admin, authenticated_user):
+        user_id = authenticated_user['id']
 
-        for _ in range(3):
-            user_data = get_register_payload()
+        super_admin.api.user_api.delete_user(user_id)
 
-            response = super_admin_api_manager.auth_api.register_user(user_data).json()
-            user_ids.append(response["id"])
+        response = super_admin.api.user_api.get_user(user_id, expected_status=200).json()
 
-        super_admin_api_manager.user_api.delete_users(*user_ids)

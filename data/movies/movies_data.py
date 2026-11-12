@@ -10,4 +10,3 @@ def get_movie_payload(genre_id):
         "published": DataGenerator.generate_random_published(),
         "genreId": genre_id
     }
-
