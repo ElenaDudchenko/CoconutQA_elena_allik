@@ -3,7 +3,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from utils.data_generator import DataGenerator
-from models.base_models import MoviesPage, Movie, Genre, GenreResponse
+from models.base_models import MoviesPage, Movie, Genre, GenreResponse, FindOneMovieResponse
 
 
 @pytest.mark.api
@@ -31,7 +31,7 @@ class TestMovies:
             response = api_manager_clean.movie_api.get_movie_by_id(movie_id)
 
         with allure.step('Валидация структуры ответа'):
-            response_movie = Movie.model_validate(response.json())
+            response_movie = FindOneMovieResponse.model_validate(response.json())
 
         with allure.step('Проверка соответствия данных фильма исходным данным'):
             assert response_movie.id == movie_id
@@ -290,23 +290,42 @@ class TestMovies:
         'role, expected_status',
         [('SUPER_ADMIN', 200), ('ADMIN', 403), ('USER', 403)]
     )
-    def test_delete_movie_with_parameters(self, role, expected_status, request, created_movie_data, super_admin):
+    def test_delete_movie_with_parameters(self, role, expected_status, created_movie_data,
+    super_admin, admin_user, common_user):
         with allure.step('Получение ID созданного фильма'):
             movie_id = created_movie_data['id']
 
+        with allure.step(f'Создание словаря с ролями'):
+            users = {
+                "SUPER_ADMIN": super_admin,
+                "ADMIN": admin_user,
+                "USER": common_user,
+            }
+            user = users[role]
+
         with allure.step(f'Удаление фильма ID {movie_id} через API'):
-            response = super_admin.api.movie_api.delete_movie(movie_id).json()
-
-        with allure.step('Проверка ID удалённого фильма'):
-            assert response['id'] == created_movie_data['id']
-
-        with allure.step('Проверка недоступности удалённого фильма через GET, ожидание 404'):
-            check = super_admin.api.movie_api.get_movie_by_id(
-                response['id'], expected_status=404
+            response = user.api.movie_api.delete_movie(
+                movie_id, expected_status=expected_status
             ).json()
 
-        with allure.step('Проверка сообщения об отсутствии фильма'):
-            assert check['message'] == 'Фильм не найден'
+        if expected_status == 200:
+            with allure.step("Проверка ID удалённого фильма"):
+                assert response["id"] == movie_id
+
+            with allure.step("Проверка, что удалённый фильм возвращает 404"):
+                check = super_admin.api.movie_api.get_movie_by_id(
+                    movie_id, expected_status=404
+                ).json()
+                assert check["message"] == "Фильм не найден"
+        else:
+            with allure.step("Проверка сообщения об отказе в удалении"):
+                assert response["message"] == "Forbidden resource"
+
+            with allure.step("Проверка, что фильм остался после отказа в удалении"):
+                check = super_admin.api.movie_api.get_movie_by_id(
+                    movie_id, expected_status=200
+                ).json()
+                assert check["id"] == movie_id
 
     @pytest.mark.smoke
     @allure.title('Тест получения жанров через GET')

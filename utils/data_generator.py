@@ -75,8 +75,8 @@ class DataGenerator:
             'email': DataGenerator.generate_random_email(),
             'full_name': DataGenerator.generate_random_name(),
             'password': DataGenerator.generate_random_password(),
-            'created_at': datetime.datetime.now(),
-            'updated_at': datetime.datetime.now(),
+            'created_at': datetime.now(),
+            'updated_at': datetime.now(),
             'verified': False,
             'banned': False,
             'roles': '{USER}'

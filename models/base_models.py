@@ -42,6 +42,9 @@ class RegisterUserResponse(BaseModel):
     createdAt: datetime
     banned: bool
 
+class RegisteredUserId(BaseModel):
+    id: str
+
 class Genre(BaseModel):
     name: str
 
@@ -58,13 +61,26 @@ class Movie(BaseModel):
     name: str
     description: str
     genreId: int
-    imageUrl: str | None
+    imageUrl: str
     price: int
     rating: float = Field(..., ge=0, le=5)
     location: Location
     published: bool
     createdAt: datetime
     genre: Genre
+
+class ReviewUser(BaseModel):
+    fullName: str
+
+class Review(BaseModel):
+    userId: str
+    rating: float
+    text: str
+    createdAt: datetime
+    user: ReviewUser
+
+class FindOneMovieResponse(Movie):
+    reviews: list[Review]
 
 class MoviesPage(BaseModel):
     movies: list[Movie]

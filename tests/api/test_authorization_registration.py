@@ -1,6 +1,8 @@
 import requests
 import pytest
 
+from clients import user_api
+from conftest import super_admin
 from models.base_models import RegisterUserResponse
 
 
@@ -46,9 +48,12 @@ class TestAuth:
 
     @pytest.mark.slow
     def test_delete_user(self, super_admin, authenticated_user):
-        user_id = authenticated_user['id']
+        user_id = authenticated_user.id
+
+        before_delete = super_admin.api.user_api.get_user(user_id, expected_status=200).json()
+        assert before_delete["id"] == user_id
 
         super_admin.api.user_api.delete_user(user_id)
 
-        response = super_admin.api.user_api.get_user(user_id, expected_status=200).json()
-
+        after_delete = super_admin.api.user_api.get_user(user_id, expected_status=200).json()
+        assert after_delete == {}

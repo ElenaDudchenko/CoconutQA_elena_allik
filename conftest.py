@@ -1,8 +1,10 @@
 from random import choice
+from uuid import uuid4
 
 import requests
 import pytest
 from sqlalchemy.orm import Session
+
 
 
 from clients.api_manager import ApiManager
@@ -13,7 +15,7 @@ from db_requester.db_helpers import DBHelper
 from entities.user import User
 from resources.user_creds import SuperAdminCreds
 from utils.data_generator import DataGenerator
-from models.base_models import TestUser, RegisterUserResponse
+from models.base_models import TestUser, RegisterUserResponse, RegisteredUserId
 
 
 @pytest.fixture(scope="session")
@@ -81,11 +83,11 @@ def registered_user(api_manager, test_user):
 
 @pytest.fixture(scope="function")
 def authenticated_user(api_manager, test_user):
-    response = RegisterUserResponse.model_validate(api_manager.auth_api.register_user(test_user).json())
-    test_user.id = response.id
-    email= test_user.email
-    password = test_user.password
-    api_manager.auth_api.authenticate((email, password))
+    response = api_manager.auth_api.register_user(test_user)
+    registered_user = RegisteredUserId.model_validate(response.json())
+    test_user.id = registered_user.id
+
+    api_manager.auth_api.authenticate((test_user.email, test_user.password))
     return test_user
 
 
@@ -187,35 +189,38 @@ def common_user(user_session, super_admin, creation_user_data):
         new_session)
 
     response = super_admin.api.user_api.create_user(creation_user_data)
-    user_data = RegisterUserResponse.model_validate(response.json())
+    user_id = response.json()["id"]
 
     try:
         common_user.api.auth_api.authenticate(common_user.creds)
         yield common_user
     finally:
-        super_admin.api.user_api.delete_user(user_data.id)
+        super_admin.api.user_api.delete_user(user_id)
 
 
 @pytest.fixture
 def admin_user(user_session, super_admin, creation_user_data):
     new_session = user_session()
 
+    corrected_data = creation_user_data.model_copy(update=
+    {"email": f"qa-admin-{uuid4().hex}@example.com",
+        "roles": [Roles.ADMIN],})
+
     admin_user = User(
-        creation_user_data.email,
-        creation_user_data.password,
+        corrected_data.email,
+        corrected_data.password,
         [Roles.ADMIN.value],
         new_session)
 
-    corrected_data = creation_user_data.model_copy(update=
-    {"roles": [Roles.ADMIN]})
-
     response = super_admin.api.user_api.create_user(corrected_data)
-    admin_data = RegisterUserResponse.model_validate(response.json())
+    admin_id = response.json()["id"]
     try:
+        super_admin.api.user_api.patch_user(admin_id,
+        {"roles": [Roles.ADMIN.value]},)
         admin_user.api.auth_api.authenticate(admin_user.creds)
         yield admin_user
     finally:
-        super_admin.api.user_api.delete_user(admin_data.id)
+        super_admin.api.user_api.delete_user(admin_id)
 
 @pytest.fixture(scope="module")
 def db_session() -> Session:
