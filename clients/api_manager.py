@@ -8,3 +8,6 @@ class ApiManager:
         self.auth_api = AuthApi(session)
         self.user_api = UserApi(session)
         self.movie_api = MovieApi(session)
+
+    def close_session(self):
+        self.session.close()
