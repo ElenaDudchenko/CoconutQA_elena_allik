@@ -2,6 +2,9 @@ import json
 import logging
 import os
 
+from pydantic import BaseModel
+
+
 class CustomRequester:
     base_headers = {
         "Content-Type": "application/json",
@@ -24,6 +27,8 @@ class CustomRequester:
                      need_logging=True,
                      **kwargs):
         url = f"{self.base_url}{endpoint}"
+        if isinstance(data,BaseModel):
+            data = data.model_dump(mode="json", exclude_unset=True)
         response = self.session.request(method, url, json=data, params=params, **kwargs)
 
         if need_logging:
