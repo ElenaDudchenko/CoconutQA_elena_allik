@@ -25,9 +25,6 @@ class TestUser(BaseModel):
     @field_validator("passwordRepeat")
     @classmethod
     def check_password_repeat(cls, value, info):
-        print("Валидатор запущен!")
-        print("value:", value)
-        print("info.data:", info.data)
         if 'password' in info.data and info.data['password'] != value:
             raise ValueError("Пароли не совпадают")
 
